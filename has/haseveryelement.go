@@ -10,22 +10,19 @@ func EveryElement[A any](expects ...*gocrest.Matcher[A]) *gocrest.Matcher[[]A] {
 	match := new(gocrest.Matcher[[]A])
 	match.Describe = fmt.Sprintf("elements to match %s", describe(expects, "and"))
 
-	for _, e := range expects {
-		match.AppendActual(e.Actual)
-	}
-
 	match.Matches = func(actual []A) bool {
+		match.Actual = "" // reset for this invocation
 		if len(actual) != len(expects) {
 			return false
 		}
-
+		result := true
 		for i, act := range actual {
 			if !expects[i].Matches(act) {
-				return false
+				result = false
 			}
+			match.AppendActual(expects[i].Actual)
 		}
-
-		return true
+		return result
 	}
 
 	return match

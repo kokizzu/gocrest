@@ -83,12 +83,14 @@ func (l *Latest) Get() *RecordingTestingT {
 	return l.latestValue
 }
 
-// Merge is used internally by Eventually to Merge the latest recorded test output from assertions passed into it with the last one
+// Merge is used internally by Eventually to Merge the latest recorded test output from assertions passed into it with the last one.
+// The merged result is stored atomically under the lock so callers must not separately assign the return value.
 // Only used with Eventually
 func (l *Latest) Merge(updated *RecordingTestingT) *RecordingTestingT {
 	l.Lock()
 	defer l.Unlock()
 	if l.latestValue == nil {
+		l.latestValue = updated
 		return updated
 	}
 	var mergedFailures []FailureLog
@@ -108,6 +110,7 @@ func (l *Latest) Merge(updated *RecordingTestingT) *RecordingTestingT {
 		failures: mergedFailures,
 		TestingT: l.latestValue.TestingT,
 	}
+	l.latestValue = merged
 	return merged
 }
 
@@ -127,7 +130,8 @@ func Eventually(t gocrest.TestingT, waitFor, tick time.Duration, assertions func
 
 	t.Helper()
 	channel := make(chan *RecordingTestingT, 1)
-	defer close(channel)
+	done := make(chan struct{})
+	defer close(done)
 
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
@@ -154,13 +158,16 @@ func Eventually(t gocrest.TestingT, waitFor, tick time.Duration, assertions func
 					failures: []FailureLog{},
 				}
 				assertions(&recordedTesting)
-				channel <- &recordedTesting
+				select {
+				case channel <- &recordedTesting:
+				case <-done:
+				}
 			}()
 		case value := <-channel:
 			if !value.Failing() {
 				return
 			}
-			latestValue.latestValue = latestValue.Merge(value)
+			latestValue.Merge(value)
 			tick = ticker.C
 		}
 	}

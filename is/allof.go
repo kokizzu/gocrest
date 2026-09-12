@@ -15,7 +15,9 @@ func AllOf[A any](allMatchers ...*gocrest.Matcher[A]) *gocrest.Matcher[A] {
 }
 
 func matchAll[A any](allMatchers []*gocrest.Matcher[A], allOf *gocrest.Matcher[A]) func(actual A) bool {
+	originalDescribe := allOf.Describe
 	return func(actual A) bool {
+		allOf.Actual = "" // reset for this invocation
 		allOf.AppendActual(fmt.Sprintf("actual <%v>", actual))
 		matches := true
 		var failingMatchers []*gocrest.Matcher[A]
@@ -26,7 +28,11 @@ func matchAll[A any](allMatchers []*gocrest.Matcher[A], allOf *gocrest.Matcher[A
 			}
 			allOf.AppendActual(m.Actual)
 		}
-		allOf.Describe = describe("and", failingMatchers)
+		if !matches {
+			allOf.Describe = describe("and", failingMatchers)
+		} else {
+			allOf.Describe = originalDescribe
+		}
 		return matches
 	}
 }

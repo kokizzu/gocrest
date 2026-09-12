@@ -12,19 +12,14 @@ type StructMatchers[A any] map[string]*gocrest.Matcher[A]
 // StructWithValues Checks whether the actual struct matches all expectations passed as StructMatchers.
 // This method can be used to check single struct fields in different ways or omit checking some struct fields at all.
 // Will automatically de-reference pointers.
-// Panics if the actual value is not a struct.
-// Panics if StructMatchers contains a key that can not be found in the actual struct.
-// Panics if StructMatchers contains a key that is unexported.
+// Fails the assertion if the actual value is not a struct.
+// Fails the assertion if StructMatchers contains a key that cannot be found in the actual struct.
 func StructWithValues[A any, B any](expects StructMatchers[B]) *gocrest.Matcher[A] {
 	match := new(gocrest.Matcher[A])
 	match.Describe = fmt.Sprintf("struct values to match {%s}", describeStructMatchers(expects))
 
-	for _, e := range expects {
-		match.AppendActual(e.Actual)
-	}
-
 	match.Matches = func(actual A) bool {
-
+		match.Actual = "" // reset for this invocation
 		actualValue := reflect.ValueOf(actual)
 		if actualValue.Kind() == reflect.Ptr {
 			actualValue = actualValue.Elem()
@@ -35,7 +30,8 @@ func StructWithValues[A any, B any](expects StructMatchers[B]) *gocrest.Matcher[
 				v := actualValue.FieldByName(key)
 
 				if !v.IsValid() {
-					panic(fmt.Sprintf("Expect[%v] does not exist on actual struct", key))
+					match.Actual = fmt.Sprintf("field '%v' does not exist on struct", key)
+					return false
 				}
 				var matches = false
 				if value, ok := v.Interface().(B); ok {
@@ -47,7 +43,8 @@ func StructWithValues[A any, B any](expects StructMatchers[B]) *gocrest.Matcher[
 			}
 			return true
 		}
-		panic("cannot determine type of actual, " + actualValue.String())
+		match.Actual = "expected a struct but got " + actualValue.Kind().String()
+		return false
 	}
 
 	return match

@@ -88,64 +88,77 @@ func ArrayMatching[A comparable](expected ...*gocrest.Matcher[A]) *gocrest.Match
 	return match
 }
 func mapActualContainsExpected[K comparable, V comparable](expected map[K]V, actual map[K]V) bool {
-	expectedKeys := make([]K, 0, len(expected))
-	for k := range expected {
-		expectedKeys = append(expectedKeys, k)
-	}
-	contains := make(map[V]bool)
-	for _, k := range expectedKeys {
-		val := actual[k]
-		if val == expected[k] {
-			contains[val] = true
+	for k, ev := range expected {
+		if actual[k] != ev {
+			return false
 		}
 	}
-	return len(contains) == len(expectedKeys)
+	return true
 }
 func mapActualContainsExpectedValues[K comparable, V comparable](expected []V, actual map[K]V) bool {
-	contains := make(map[V]bool)
+	// Build a multiset of available actual values so duplicate expected values require duplicate actuals.
+	available := make(map[V]int)
+	for _, v := range actual {
+		available[v]++
+	}
 	for _, e := range expected {
+		if available[e] == 0 {
+			return false
+		}
+		available[e]--
+	}
+	return true
+}
+func mapActualMatchesExpected[K comparable, V comparable](expected []*gocrest.Matcher[V], actual map[K]V) bool {
+	// Greedy: each expected matcher consumes one unique actual key so duplicates are handled correctly.
+	used := make(map[K]bool)
+	for _, exp := range expected {
+		found := false
 		for k, v := range actual {
-			if actual[k] == e {
-				contains[v] = true
+			if !used[k] && exp.Matches(v) {
+				used[k] = true
+				found = true
 				break
 			}
 		}
-	}
-	return len(contains) == len(expected)
-}
-func mapActualMatchesExpected[K comparable, V comparable, A map[K]V](expected []*gocrest.Matcher[V], actual A) bool {
-	contains := make(map[V]bool)
-	for _, exp := range expected {
-		for _, v := range actual {
-			if exp.Matches(v) {
-				contains[v] = true
-			}
+		if !found {
+			return false
 		}
 	}
-	return len(contains) == len(expected)
+	return true
 }
 
 func listContains[T comparable, A []T](expected A, actualValue A) bool {
-	contains := make(map[T]bool)
-	for _, exp := range expected {
-		for _, act := range actualValue {
-			if exp == act {
-				contains[act] = true
-			}
-		}
+	// Multiset matching: duplicate expected elements require the same count in actual.
+	available := make(map[T]int)
+	for _, act := range actualValue {
+		available[act]++
 	}
-	return len(contains) == len(expected)
+	for _, exp := range expected {
+		if available[exp] == 0 {
+			return false
+		}
+		available[exp]--
+	}
+	return true
 }
 func listMatches[T comparable](expected []*gocrest.Matcher[T], actualValue []T) bool {
-	contains := make(map[T]bool)
+	// Greedy: each expected matcher consumes one unmatched actual element.
+	used := make([]bool, len(actualValue))
 	for _, exp := range expected {
-		for _, act := range actualValue {
-			if exp.Matches(act) {
-				contains[act] = true
+		found := false
+		for i, act := range actualValue {
+			if !used[i] && exp.Matches(act) {
+				used[i] = true
+				found = true
+				break
 			}
 		}
+		if !found {
+			return false
+		}
 	}
-	return len(contains) == len(expected)
+	return true
 }
 
 func descriptionFor[T any, A []T](expected A) string {

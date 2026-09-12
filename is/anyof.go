@@ -16,6 +16,7 @@ func AnyOf[A any](allMatchers ...*gocrest.Matcher[A]) *gocrest.Matcher[A] {
 
 func anyMatcherMatches[A any](allMatchers []*gocrest.Matcher[A], anyOf *gocrest.Matcher[A]) func(actual A) bool {
 	return func(actual A) bool {
+		anyOf.Actual = "" // reset for this invocation
 		matches := false
 		anyOf.AppendActual(fmt.Sprintf("actual <%v>", actual))
 		for _, m := range allMatchers {

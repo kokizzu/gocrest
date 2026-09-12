@@ -220,8 +220,10 @@ func TestEmptyArrayIsEmptyPasses(testing *testing.T) {
 }
 
 func TestAssertThatTwoIntValuesAreGreaterThanOrNotFails(testing *testing.T) {
+	stubTestingT = new(StubTestingT)
 	then.AssertThat(stubTestingT, 1, is.GreaterThan(1))
 	hasFailed(testing)
+	stubTestingT = new(StubTestingT)
 	then.AssertThat(stubTestingT, 1.12, is.GreaterThan(1.12))
 	hasFailed(testing)
 }
@@ -468,6 +470,7 @@ func TestAssertThatTwoStringValuesAreLessThanOrEqualToPassesOrNot(testing *testi
 }
 
 func TestNotReturnsTheOppositeOfGivenMatcher(testing *testing.T) {
+	stubTestingT = new(StubTestingT)
 	then.AssertThat(stubTestingT, 1, is.Not(is.EqualTo(1)))
 	if !stubTestingT.HasFailed() {
 		testing.Error("Not(EqualTo) did not fail the test")
@@ -903,6 +906,7 @@ func TestHasFieldDescribesMismatch(testing *testing.T) {
 		B string
 	}
 	expected := "X"
+	stubTestingT = new(StubTestingT)
 	then.AssertThat(stubTestingT, new(T), has.FieldNamed[*T](expected))
 	if !strings.Contains(stubTestingT.MockTestOutput, "struct with field X") &&
 		!strings.Contains(stubTestingT.MockTestOutput, "T{F string B string}") {
@@ -917,6 +921,7 @@ func TestHasFunctionDescribesMismatch(testing *testing.T) {
 	}
 	actual := new(MyType)
 	expected := "X"
+	stubTestingT = new(StubTestingT)
 	then.AssertThat(stubTestingT, actual, has.FunctionNamed[*MyType](expected))
 	if !strings.Contains(stubTestingT.MockTestOutput, "interface with function X") &&
 		!strings.Contains(stubTestingT.MockTestOutput, "MyType{B()F()}") {
